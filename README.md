@@ -20,6 +20,6 @@ This shell script will install a customised LEMP stack and common command line t
 ## Install
 
 ```
-wget https://raw.githubusercontent.com/thisisfever/workspace-setup/master/setup.sh && bash install.sh
+wget https://raw.githubusercontent.com/thisisfever/workspace-setup/master/setup.sh && bash setup.sh
 ```
 
