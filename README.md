@@ -1,6 +1,6 @@
 # Development Workspace Setup
 
-This shell script will install all a customised LEMP stack and command line tools for day-to-day web development.
+This shell script will install a customised LEMP stack and common command line tools for day-to-day web development.
 
 ## Features
 
@@ -20,6 +20,6 @@ This shell script will install all a customised LEMP stack and command line tool
 ## Install
 
 ```
-wget <URL> && bash install.sh
+wget https://raw.githubusercontent.com/thisisfever/workspace-setup/master/setup.sh && bash install.sh
 ```
 
