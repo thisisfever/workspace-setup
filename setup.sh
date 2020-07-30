@@ -131,18 +131,6 @@ systemctl restart nginx
 # Reload PHP-FPM installation
 systemctl reload php7.4-fpm.service
 
-# Install ZSH Shell
-apt install zsh -y -q
-# Install Oh My ZSH
-sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)" -y
-# Create default .zshrc config
-wget -O /home/$wsuser/.zshrc https://raw.githubusercontent.com/thisisfever/workspace-setup/master/.zshrc
-
-# Install NVM to manage Node
-wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
-# Use NVM to install latest LTS node version
-nvm install --lts
-
 # Install Yarn
 npm install -g yarn
 
@@ -155,21 +143,28 @@ php composer-setup.php --install-dir=/usr/local/bin --filename=composer
 # Install dnsmasq for dynamic hostname support (Browsersync needs hostnames setup within the workspace)
 systemctl disable systemd-resolved
 systemctl stop systemd-resolved
-apt-get install dnsmasq
+apt-get install dnsmasq -y -q
+rm /etc/resolv.conf
 echo "nameserver 127.0.0.1
-nameserver 8.8.8.8" >> /etc/resolv.conf
+nameserver 8.8.8.8" > /etc/resolv.conf
 echo "listen-address=127.0.0.1
 bind-interfaces
 address=/test/127.0.0.1" >> /etc/dnsmasq.conf
 echo "prepend domain-name-servers 127.0.0.1;" >> /etc/dhcp/dhclient.conf
 systemctl restart dnsmasq
 
+# Download post install script
+wget -O /home/$wsuser/post.sh https://raw.githubusercontent.com/thisisfever/workspace-setup/master/post-setup.sh
+chmod 755 setup.sh
+
+
 echo "================================================================="
 echo ""
-echo "Workspace is ready! Your username/password is listed below."
+echo "Workspace is almost ready! Your username/password is listed below."
 echo ""
 echo "Username: $wsuser"
 echo "Password: $wspass"
 echo ""
+echo "Please login with these details and run ./post.sh"
 echo "================================================================="
 fi
