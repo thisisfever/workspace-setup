@@ -2,6 +2,8 @@
 export ZSH="~/.oh-my-zsh"
 export COMPOSER_ALLOW_SUPERUSER=1
 export PATH=$HOME/.config/composer/vendor/bin:$PATH
+export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
 ZSH_THEME="bira"
 # ZSH_THEME="gianu"
 # ZSH_THEME="powerlevel9k/powerlevel9k"
