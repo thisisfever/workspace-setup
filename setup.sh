@@ -90,7 +90,7 @@ sed -i "s/upload_max_filesize = .*/upload_max_filesize = 512M/" /etc/php/7.4/fpm
 # Create default file for Nginx with dynamic virtual hosts
 mkdir /home/$wsuser/config
 mkdir /home/$wsuser/config/nginx
-wget -O /home/$wsuser/config/nginx.conf https://raw.githubusercontent.com/thisisfever/workspace-setup/master/default.conf
+wget -O /home/$wsuser/config/nginx/default.conf https://raw.githubusercontent.com/thisisfever/workspace-setup/master/default.conf
 sed -i "s/<user>/$wsuser/" /home/$wsuser/config/nginx.conf
 # Create nginx.conf
 wget -O /etc/nginx/nginx.conf https://raw.githubusercontent.com/thisisfever/workspace-setup/master/nginx.conf
@@ -132,6 +132,10 @@ mkdir /home/$wsuser/logs
 # Give Nginx permissions to be able to access logs
 chown -R www-data:www-data /home/$wsuser/logs
 chmod g+s /home/$wsuser/logs
+
+# Give Nginx permissions to be able to access these websites
+wget -O /home/$wsuser/config/new.sh https://raw.githubusercontent.com/thisisfever/workspace-setup/master/new.sh
+chmod 755 /home/$wsuser/config/new.sh
 
 # Maximize the limits of file system usage
 echo -e "*       soft    nofile  1000000" >> /etc/security/limits.conf
@@ -184,6 +188,8 @@ git clone https://github.com/ohmyzsh/ohmyzsh.git /home/$wsuser/.oh-my-zsh
 git clone https://github.com/zsh-users/zsh-autosuggestions /home/$wsuser/.oh-my-zsh/custom/plugins/zsh-autosuggestions
 # Create default .zshrc config
 sudo wget -O /home/$wsuser/.zshrc https://raw.githubusercontent.com/thisisfever/workspace-setup/master/.zshrc
+chmod 755 /home/$wsuser/config/new.sh
+chown -R $wsuser:$wsuser /home/$wsuser/.zshrc
 
 echo "==========================================================="
 cat <<-'EOF'
