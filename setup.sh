@@ -27,7 +27,11 @@ read -e wsdbuser
 echo "Database Password:"
 read -e wsdbpass
 
-wspass=$(hostname | md5sum)
+# generate password
+wspass=$(openssl rand -base64 14)
+
+# get ip address
+wsip=$(wget -qO - ipv4bot.whatismyipaddress.com)
 
 # add a simple yes/no confirmation before we proceed
 echo "Run Install? (y/n)"
@@ -78,14 +82,16 @@ apt-get update -y -q
 apt-get install nginx -y -q
 
 # Set Default PHP-FPM Limits
-sed -i "s/memory_limit = .*/memory_limit = -1/" /etc/php/7.4/fpm/php.ini
+sed -i "s/memory_limit = .*/memory_limit = 512M/" /etc/php/7.4/fpm/php.ini
 sed -i "s/max_execution_time = .*/max_execution_time = 300/" /etc/php/7.4/fpm/php.ini
 sed -i "s/max_input_time = .*/max_input_time = 90/" /etc/php/7.4/fpm/php.ini
 sed -i "s/post_max_size = .*/post_max_size = 512M/" /etc/php/7.4/fpm/php.ini
 sed -i "s/upload_max_filesize = .*/upload_max_filesize = 512M/" /etc/php/7.4/fpm/php.ini
 # Create default file for Nginx with dynamic virtual hosts
-wget -O /etc/nginx/sites-available/default.conf https://raw.githubusercontent.com/thisisfever/workspace-setup/master/default.conf
-sed -i "s/<user>/$wsuser/" /etc/nginx/sites-available/default.conf
+mkdir /home/$wsuser/config
+mkdir /home/$wsuser/config/nginx
+wget -O /home/$wsuser/config/nginx.conf https://raw.githubusercontent.com/thisisfever/workspace-setup/master/default.conf
+sed -i "s/<user>/$wsuser/" /home/$wsuser/config/nginx.conf
 # Create nginx.conf
 wget -O /etc/nginx/nginx.conf https://raw.githubusercontent.com/thisisfever/workspace-setup/master/nginx.conf
 sed -i "s/<user>/$wsuser/" /etc/nginx/nginx.conf
@@ -117,10 +123,16 @@ mysql -uroot -p -e "$SQL"
 # Create default folder for future websites
 mkdir /home/$wsuser/projects
 # Give Nginx permissions to be able to access these websites
-chown -R www-data:www-data /home/$wsuser/projects/*
+chown -R www-data:www-data /home/$wsuser/projects
 # Set default user permissions
-chmod g+s /home/$wsuser/projects/*
-setfacl -d -m group:www-data:rwx /home/$wsuser/projects/*
+chmod 775 /home/$wsuser/projects
+chmod g+s /home/$wsuser/projects
+# Create logs folder
+mkdir /home/$wsuser/logs
+# Give Nginx permissions to be able to access logs
+chown -R www-data:www-data /home/$wsuser/logs
+chmod g+s /home/$wsuser/logs
+
 # Maximize the limits of file system usage
 echo -e "*       soft    nofile  1000000" >> /etc/security/limits.conf
 echo -e "*       hard    nofile  1000000" >> /etc/security/limits.conf
@@ -140,31 +152,63 @@ HASH=`curl -sS https://composer.github.io/installer.sig`
 php -r "if (hash_file('SHA384', 'composer-setup.php') === '$HASH') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
 php composer-setup.php --install-dir=/usr/local/bin --filename=composer
 
-# Install dnsmasq for dynamic hostname support (Browsersync needs hostnames setup within the workspace)
-systemctl disable systemd-resolved
-systemctl stop systemd-resolved
-apt-get install dnsmasq -y -q
-rm /etc/resolv.conf
-echo "nameserver 127.0.0.1
-nameserver 8.8.8.8" > /etc/resolv.conf
-echo "listen-address=127.0.0.1
-bind-interfaces
-address=/test/127.0.0.1" >> /etc/dnsmasq.conf
-echo "prepend domain-name-servers 127.0.0.1;" >> /etc/dhcp/dhclient.conf
-systemctl restart dnsmasq
 
-# Download post install script
-wget -O /home/$wsuser/post.sh https://raw.githubusercontent.com/thisisfever/workspace-setup/master/post-setup.sh
-chmod 755 setup.sh
+# # Install dnsmasq for dynamic hostname support (Browsersync needs hostnames setup within the workspace)
+# systemctl disable systemd-resolved
+# # sudo systemctl enable systemd-resolved
+# systemctl stop systemd-resolved
+# # sudo systemctl start systemd-resolved
+# apt-get install dnsmasq -y -q
+# rm /etc/resolv.conf
+# echo "nameserver 127.0.0.1
+# nameserver 8.8.8.8" > /etc/resolv.conf
+# echo "listen-address=127.0.0.1
+# bind-interfaces
+# address=/test/127.0.0.1" >> /etc/dnsmasq.conf
+# echo "prepend domain-name-servers 127.0.0.1;" >> /etc/dhcp/dhclient.conf
+# systemctl restart dnsmasq
 
+# Install NVM to manage Node
+sudo wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+# Use NVM to install latest LTS node version
+sudo nvm install --lts
 
-echo "================================================================="
+# Install Yarn
+sudo npm install -g yarn
+
+# Install ZSH Shell
+sudo apt install zsh -y -q
+# Install Oh My ZSH
+git clone https://github.com/ohmyzsh/ohmyzsh.git /home/$wsuser/.oh-my-zsh
+# Install autosuggestions
+git clone https://github.com/zsh-users/zsh-autosuggestions /home/$wsuser/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+# Create default .zshrc config
+sudo wget -O /home/$wsuser/.zshrc https://raw.githubusercontent.com/thisisfever/workspace-setup/master/.zshrc
+
+echo "==========================================================="
+cat <<-'EOF'
+ _    _  ___________ _   __ ___________  ___  _____  _____ 
+| |  | ||  _  | ___ \ | / //  ___| ___ \/ _ \/  __ \|  ___|
+| |  | || | | | |_/ / |/ / \ `--.| |_/ / /_\ \ /  \/| |__  
+| |/\| || | | |    /|    \  `--. \  __/|  _  | |    |  __| 
+\  /\  /\ \_/ / |\ \| |\  \/\__/ / |   | | | | \__/\| |___ 
+ \/  \/  \___/\_| \_\_| \_/\____/\_|   \_| |_/\____/\____/ 
+
+EOF
+echo "==========================================================="
 echo ""
-echo "Workspace is almost ready! Your username/password is listed below."
+echo "Your workspace is ready!"
 echo ""
-echo "Username: $wsuser"
-echo "Password: $wspass"
+echo "Username:   $wsuser"
+echo "Password:   $wspass"
+echo "IP Address: $wsip"
 echo ""
-echo "Please login with these details and run ./post.sh"
-echo "================================================================="
+echo "-----------------------------------------------------------"
+echo ""
+echo "Please SSH into the server with above details and run:"
+echo ""
+echo "sudo chsh -s $(which zsh)"
+echo ""
+echo "-----------------------------------------------------------"
+echo ""
 fi
