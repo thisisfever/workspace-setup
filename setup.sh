@@ -42,51 +42,38 @@ if [ "$run" == n ] ; then
 exit
 else
 
+# Create new user and add to groups
 useradd -m "$wsuser" -p "$wspass"
 usermod -aG sudo "$wsuser"
 usermod -aG www-data "$wsuser"
-
 echo "Match User $wsuser
 PasswordAuthentication yes" >> /etc/ssh/sshd_config
-
 echo "$wsuser ALL=(ALL:ALL) NOPASSWD: ALL" | sudo env EDITOR="tee -a" visudo
 
 # Update list of available packages
 apt-get update -y -q
-# Install the most common packages that will be usefull under development environment
+# Install the most common packages that will be useful under development environment
 apt-get install zip unzip htop software-properties-common -y -q
+
 # Install PHP-FPM
 apt-add-repository ppa:ondrej/php -y -q
 apt-get update -y -q
 apt -y install php7.4
 apt-get install -y php7.4-{fpm,cli,bcmath,bz2,zip,intl,gd,mbstring,mysql,zip,pdo,json,curl,xml,sqlite,imagick}
 systemctl disable --now apache2
-
-# # Create a folder to backup current installation of Nginx && PHP-FPM
-# now=$(date +"%Y-%m-%d_%H-%M-%S")
-# mkdir /backup/
-# mkdir /backup/$now/nginx/ && mkdir /backup/$now/php/ && mkdir /backup/$now/mysql/
-# # Create a full backup of previous Nginx configuration
-# cp -r /etc/nginx/ /backup/$now/nginx/
-# # Create a full backup of previous PHP configuration
-# cp -r /etc/php/ /backup/$now/php/
-# # Create a full backup of previous MySQL configuration
-# cp -r /etc/mysql/ /backup/$now/mysql/
-# # Delete previous Nginx installation
-# apt-get purge nginx-core nginx-common nginx -y -q
-# apt-get autoremove -y -q
-
-# Update list of available packages
-apt-get update -y -q
-# Install custom Nginx package
-apt-get install nginx -y -q
-
 # Set Default PHP-FPM Limits
 sed -i "s/memory_limit = .*/memory_limit = 512M/" /etc/php/7.4/fpm/php.ini
 sed -i "s/max_execution_time = .*/max_execution_time = 300/" /etc/php/7.4/fpm/php.ini
-sed -i "s/max_input_time = .*/max_input_time = 90/" /etc/php/7.4/fpm/php.ini
+sed -i "s/max_input_time = .*/max_input_time = 120/" /etc/php/7.4/fpm/php.ini
 sed -i "s/post_max_size = .*/post_max_size = 512M/" /etc/php/7.4/fpm/php.ini
 sed -i "s/upload_max_filesize = .*/upload_max_filesize = 512M/" /etc/php/7.4/fpm/php.ini
+# Switch to the ondemand state of PHP-FPM
+sed -i "s/^pm = .*/pm = ondemand/" /etc/php/7.4/fpm/pool.d/www.conf
+# Reload PHP-FPM installation
+systemctl reload php7.4-fpm.service
+
+# Install Nginx
+apt-get install nginx -y -q
 # Create default file for Nginx with dynamic virtual hosts
 mkdir /home/$wsuser/config
 mkdir /home/$wsuser/config/nginx
@@ -95,10 +82,12 @@ sed -i "s/<user>/$wsuser/" /home/$wsuser/config/nginx.conf
 # Create nginx.conf
 wget -O /etc/nginx/nginx.conf https://raw.githubusercontent.com/thisisfever/workspace-setup/master/nginx.conf
 sed -i "s/<user>/$wsuser/" /etc/nginx/nginx.conf
+# Reload Nginx installation
+systemctl restart nginx
+
 # Add repository for MariaDB 10.5
 sudo apt-key adv --fetch-keys 'https://mariadb.org/mariadb_release_signing_key.asc'
 sudo add-apt-repository 'deb [arch=amd64,arm64,ppc64el] http://sfo1.mirrors.digitalocean.com/mariadb/repo/10.5/ubuntu focal main'
-# Update list of available packages
 apt-get update -y -q
 # Use md5 hash of your hostname to define a root password for MariaDB
 password=$(hostname | md5sum | awk '{print $1}')
@@ -106,10 +95,10 @@ debconf-set-selections <<< "mariadb-server-10.5 mysql-server/root_password passw
 debconf-set-selections <<< "mariadb-server-10.5 mysql-server/root_password_again password $password"
 # Install MariaDB package
 apt-get install mariadb-server -y -q
-# Add custom configuration for your Mysql
+# Add custom configuration for MariaDB
 # All modified variables are available at https://mariadb.com/kb/en/library/server-system-variables/
 echo -e "\n[mysqld]\nmax_connections=24\nconnect_timeout=10\nwait_timeout=10\nthread_cache_size=24\nsort_buffer_size=1M\njoin_buffer_size=1M\ntmp_table_size=8M\nmax_heap_table_size=1M\nbinlog_cache_size=8M\nbinlog_stmt_cache_size=8M\nkey_buffer_size=1M\ntable_open_cache=64\nread_buffer_size=1M\nquery_cache_limit=1M\nquery_cache_size=8M\nquery_cache_type=1\ninnodb_buffer_pool_size=8M\ninnodb_open_files=1024\ninnodb_io_capacity=1024\ninnodb_buffer_pool_instances=1" >> /etc/mysql/my.cnf
-# Write down current password for MariaDB in my.cnf
+# Save password for MariaDB in my.cnf
 echo -e "\n[client]\nuser = root\npassword = $password" >> /etc/mysql/my.cnf
 # Restart MariaDB
 service mysql restart
@@ -119,6 +108,10 @@ Q2="GRANT ALL privileges ON *.* TO '$wsdbuser'@localhost;"
 Q3="FLUSH PRIVILEGES;"
 SQL="${Q1}${Q2}${Q3}"
 mysql -uroot -p -e "$SQL"
+
+# Maximize the limits of file system usage
+echo -e "*       soft    nofile  1000000" >> /etc/security/limits.conf
+echo -e "*       hard    nofile  1000000" >> /etc/security/limits.conf
 
 # Create default folder for future websites
 mkdir /home/$wsuser/projects
@@ -133,19 +126,9 @@ mkdir /home/$wsuser/logs
 chown -R www-data:www-data /home/$wsuser/logs
 chmod g+s /home/$wsuser/logs
 
-# Give Nginx permissions to be able to access these websites
+# Get new project script
 wget -O /home/$wsuser/config/new.sh https://raw.githubusercontent.com/thisisfever/workspace-setup/master/new.sh
 chmod 755 /home/$wsuser/config/new.sh
-
-# Maximize the limits of file system usage
-echo -e "*       soft    nofile  1000000" >> /etc/security/limits.conf
-echo -e "*       hard    nofile  1000000" >> /etc/security/limits.conf
-# Switch to the ondemand state of PHP-FPM
-sed -i "s/^pm = .*/pm = ondemand/" /etc/php/7.4/fpm/pool.d/www.conf
-# Reload Nginx installation
-systemctl restart nginx
-# Reload PHP-FPM installation
-systemctl reload php7.4-fpm.service
 
 # Install Yarn
 npm install -g yarn
@@ -155,7 +138,6 @@ curl -sS https://getcomposer.org/installer -o composer-setup.php
 HASH=`curl -sS https://composer.github.io/installer.sig`
 php -r "if (hash_file('SHA384', 'composer-setup.php') === '$HASH') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
 php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-
 
 # # Install dnsmasq for dynamic hostname support (Browsersync needs hostnames setup within the workspace)
 # systemctl disable systemd-resolved
@@ -191,14 +173,17 @@ sudo wget -O /home/$wsuser/.zshrc https://raw.githubusercontent.com/thisisfever/
 chmod 755 /home/$wsuser/config/new.sh
 chown -R $wsuser:$wsuser /home/$wsuser/.zshrc
 
+# Update all packages
+apt update && apt upgrade
+
 echo "==========================================================="
 cat <<-'EOF'
- _    _  ___________ _   __ ___________  ___  _____  _____ 
+ _    _  ___________ _   __ ___________  ___  _____  _____
 | |  | ||  _  | ___ \ | / //  ___| ___ \/ _ \/  __ \|  ___|
-| |  | || | | | |_/ / |/ / \ `--.| |_/ / /_\ \ /  \/| |__  
-| |/\| || | | |    /|    \  `--. \  __/|  _  | |    |  __| 
-\  /\  /\ \_/ / |\ \| |\  \/\__/ / |   | | | | \__/\| |___ 
- \/  \/  \___/\_| \_\_| \_/\____/\_|   \_| |_/\____/\____/ 
+| |  | || | | | |_/ / |/ / \ `--.| |_/ / /_\ \ /  \/| |__
+| |/\| || | | |    /|    \  `--. \  __/|  _  | |    |  __|
+\  /\  /\ \_/ / |\ \| |\  \/\__/ / |   | | | | \__/\| |___
+ \/  \/  \___/\_| \_\_| \_/\____/\_|   \_| |_/\____/\____/
 
 EOF
 echo "==========================================================="

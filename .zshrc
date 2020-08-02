@@ -20,12 +20,12 @@ plugins=(git zsh-autosuggestions git-auto-fetch ssh-agent)
 source $ZSH/oh-my-zsh.sh
 
 # Aliases
-alias zshconfig="nano ~/.zshrc"
+alias zshconfig="sudo nano ~/.zshrc"
 alias hosts="sudo nano /etc/hosts"
 alias zshreload=". ~/.zshrc"
 alias nginxreload="sudo systemctl restart nginx"
 alias update="sudo apt update && sudo apt upgrade"
 alias pa="php artisan"
 alias phpa="php artisan"
-alias zipcurrent="zip -r archive.zip ./ -x node_modules/\*"
+alias zipcurrent="sudo zip -r archive.zip ./ -x node_modules/\*"
 alias changeowner="sudo chown -R www-data:www-data ."
