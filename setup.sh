@@ -18,8 +18,10 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 # accept user input for username
-echo "Username: (lowercase)"
-read -e wsuser
+echo "Username:"
+read -e wsuser_original
+
+wsuser=$(echo "$wsuser_original" | iconv -t ascii//TRANSLIT | sed -r s/[^a-zA-Z0-9]+/-/g | sed -r s/^-+\|-+$//g | tr A-Z a-z)
 
 # accept user input for db
 echo "Database User:"
